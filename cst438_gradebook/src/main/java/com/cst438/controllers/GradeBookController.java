@@ -1,12 +1,17 @@
 package com.cst438.controllers;
 
+import java.sql.Date;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -168,6 +173,91 @@ public class GradeBookController {
 		}
 		
 		return assignment;
+	}
+	
+	
+	@PostMapping("/createAssignment/{name}/{date}")
+	public Assignment createAssignment(@PathVariable("name") String name,
+	@PathVariable("date") String date){
+		// check that this request is from the course instructor 
+		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
+		int courseId = 999001;
+		
+		Assignment assignment = new Assignment();
+		
+		//I create the date object for the assignment using the path variable
+		Date dueDate = Date.valueOf(date);
+
+		//I find the course by a hard coded id
+		Course course = courseRepository.findById(courseId).orElse(null);
+		
+		if (course == null) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Invalid course primary key");
+		}
+		
+		System.out.println(course.getInstructor());
+		//I check that the instructor of the course matches the email
+//		System.out.println(course.getInstructor());
+		if(!course.getInstructor().equals(email)) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "You can't add an assignment for this course");
+		}
+		
+		assignment.setName(name);
+		// the assignment does not need grading, so I set it to 0
+		assignment.setNeedsGrading(0);
+		assignment.setCourse(course);
+		assignment.setDueDate(dueDate);
+		assignmentRepository.save(assignment);
+		
+		return assignment;
+	}
+	
+	@PostMapping("/changeAssignment/{name}/{id}")
+	public Assignment changeAssignment(@PathVariable("name") String name,
+	@PathVariable("id") int assignmentId){
+		Assignment assignment = assignmentRepository.findById(assignmentId).orElse(null);
+		
+		String email = "dwisnesknni@csumb.edu"; 
+		
+		if (assignment == null) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Assignment not found. " + assignmentId );
+		}
+		// check that user is the course instructor
+		if (assignment.getCourse().getInstructor().equals(email)) {
+			throw new ResponseStatusException( HttpStatus.UNAUTHORIZED, "Not Authorized. " );
+		}
+		
+		//I set the name of the assignment then save it back to the repository
+		assignment.setName(name);
+		assignmentRepository.save(assignment);
+		
+		return assignment;
+	}
+	
+	@DeleteMapping("/deleteAssignment/{id}")
+	public void deleteAssignment(@PathVariable("id") int assignmentId){
+		//finding the assignment via the id
+		Assignment assignment = assignmentRepository.findById(assignmentId).orElse(null);
+		
+		String email = "dwisneski@csumb.edu"; 
+		
+		if (assignment == null) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Assignment not found. "+assignmentId );
+		}
+		// check that user is the course instructor
+		if (!assignment.getCourse().getInstructor().equals(email)) {
+			throw new ResponseStatusException( HttpStatus.UNAUTHORIZED, "Not Authorized. " );
+		}
+		
+		//tried to check if a grade existed before deleting
+//		AssignmentGrade ag = assignmentGradeRepository.findByAssignmentId(assignmentId).orElse(null);
+//		if (ag != null) {
+//			System.out.print("A grade exists. can't delete");
+//			throw new ResponseStatusException( HttpStatus.BAD_REQUEST );
+//		}
+		
+		//delete the assignment from the repository
+		assignmentRepository.deleteById(assignmentId);
 	}
 
 }

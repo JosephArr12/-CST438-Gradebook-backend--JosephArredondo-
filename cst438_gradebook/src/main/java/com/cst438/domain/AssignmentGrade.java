@@ -88,6 +88,13 @@ public class AssignmentGrade {
 			return false;
 		return true;
 	}
+
+	public AssignmentGrade orElse(Object object) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
 	
 	
 
