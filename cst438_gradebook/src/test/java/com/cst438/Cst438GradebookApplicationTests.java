@@ -8,10 +8,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.web.server.ResponseStatusException;
 
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.times;
@@ -23,9 +25,9 @@ import java.util.Optional;
 
 import com.cst438.controllers.GradeBookController;
 import com.cst438.domain.Assignment;
+import com.cst438.domain.AssignmentDTO;
 import com.cst438.domain.AssignmentGrade;
 import com.cst438.domain.AssignmentGradeRepository;
-import com.cst438.domain.AssignmentListDTO.AssignmentDTO;
 import com.cst438.domain.AssignmentRepository;
 import com.cst438.domain.Course;
 import com.cst438.domain.CourseRepository;
@@ -62,6 +64,9 @@ public class Cst438GradebookApplicationTests {
 	public static final int TEST_YEAR = 2023;
 	public static final String TEST_SEMESTER = "Spring";
 	public static final String TEST_DUE_DATE = "2023-03-03";
+	public static final String TEST_ASSIGNMENT_NAME = "TestA1";
+	public static final String TEST_ASSIGNMENT_CHANGE_NAME= "TestA100";
+	public static final int TEST_ASSIGNMENT_ID = 100;
 
 	@MockBean
 	AssignmentRepository assignmentRepository;
@@ -79,12 +84,11 @@ public class Cst438GradebookApplicationTests {
 	private MockMvc mvc;
 
 	@Test
-	public void updateAssignmentGrade() throws Exception {
+	public void createAssignment() throws Exception {
 
 		MockHttpServletResponse response;
-
-		// mock database data
-
+		
+		//I add the mock data that my api checks
 		Course course = new Course();
 		course.setCourse_id(TEST_COURSE_ID);
 		course.setSemester(TEST_SEMESTER);
@@ -92,42 +96,30 @@ public class Cst438GradebookApplicationTests {
 		course.setInstructor(TEST_INSTRUCTOR_EMAIL);
 		
 		courseRepository.save(course);
-		
-		Assignment assignment = new Assignment();
-		assignment.setCourse(course);
-		
+
+//		I create a DTO to send the data to the server.	
 		Date dueDate = Date.valueOf(TEST_DUE_DATE);
 		
-		assignment.setDueDate(dueDate);
-		assignment.setId(1);
-		assignment.setName("Assignment 1");
-		assignment.setNeedsGrading(0);
-
-		
-		assignmentRepository.save(assignment);
-
-		// given -- stubs for database repositories that return test data
-		given(assignmentRepository.findById(1)).willReturn(Optional.of(assignment));
+     	AssignmentDTO a = new AssignmentDTO();
+     	a.dueDate = dueDate.toString();
+     	a.assignmentName = TEST_ASSIGNMENT_NAME;
 
 		// end of mock data
-
-//		// then do an http post request to create an assignment
-		response = mvc.perform(MockMvcRequestBuilders.post("/createAssignment/Assignment1/2023-03-03").accept(MediaType.APPLICATION_JSON)).andReturn().getResponse();
-		System.out.print(response.getStatus());
+		//http post request using the data
+		response = mvc.perform(MockMvcRequestBuilders.post("/createAssignment")
+				.accept(MediaType.APPLICATION_JSON).content(asJsonString(a))
+				.contentType(MediaType.APPLICATION_JSON)).andReturn()
+				.getResponse();
 		
+     	AssignmentDTO result = fromJsonString(response.getContentAsString(), AssignmentDTO.class);
+//     	
+//     	//I check the status, name, and due date to see if the DTO returned matches what was sent to the server
 		assertEquals(200, response.getStatus());
-//
-//		// verify that a save was called once on the repository because the assignment is being added
+		assertEquals(TEST_ASSIGNMENT_NAME, result.assignmentName);
+		assertEquals(dueDate.toString(), result.dueDate);
+		
+		//check if the assignment was added by the controller
 		verify(assignmentRepository, times(1)).save(any());
-//
-		// verify that returned data has non zero primary key
-		AssignmentDTO result = fromJsonString(response.getContentAsString(), AssignmentDTO.class);
-		// assignment id is 1
-		assertEquals(1, result.assignmentId);
-		// there is one student list
-		assertEquals("Assignment 1", result.assignmentName);
-		assertEquals(TEST_COURSE_ID, result.courseId);
-		assertEquals(dueDate, result.dueDate);
 	}
 	
 	@Test
@@ -149,50 +141,40 @@ public class Cst438GradebookApplicationTests {
 		
 		assignment.setDueDate(dueDate);
 		assignment.setId(1);
-		assignment.setName("Assignment 1");
+		assignment.setName(TEST_ASSIGNMENT_NAME);
 		assignment.setNeedsGrading(0);
 
-		
 		assignmentRepository.save(assignment);
 
 		// given -- stubs for database repositories that return test data
 		given(assignmentRepository.findById(1)).willReturn(Optional.of(assignment));
 
 		// end of mock data
-
-//		// then do an http post request to create an assignment
-		response = mvc.perform(MockMvcRequestBuilders.post("/createAssignment/Assignment1/2023-03-03").accept(MediaType.APPLICATION_JSON)).andReturn().getResponse();
-		System.out.print(response.getStatus());
 		
-		assertEquals(200, response.getStatus());
-		
-		// verify that returned data has non zero primary key
-		AssignmentDTO result = fromJsonString(response.getContentAsString(), AssignmentDTO.class);
-		// assignment id is 1
-		assertEquals(1, result.assignmentId);
-		// there is one student list
-		assertEquals("Assignment 1", result.assignmentName);
-		assertEquals(TEST_COURSE_ID, result.courseId);
-		assertEquals(dueDate, result.dueDate);
+     	AssignmentDTO a = new AssignmentDTO();
+     	a.assignmentName=TEST_ASSIGNMENT_CHANGE_NAME;
 
-		// change name
-		result.assignmentName = "NewAssignment";
 
 		// send updates to server
 		response = mvc
-				.perform(MockMvcRequestBuilders.put("/changeAssignment/").accept(MediaType.APPLICATION_JSON)
-						.content(asJsonString(result)).contentType(MediaType.APPLICATION_JSON))
+				.perform(MockMvcRequestBuilders.post("/changeAssignment/1").accept(MediaType.APPLICATION_JSON)
+						.content(asJsonString(a)).contentType(MediaType.APPLICATION_JSON))
 				.andReturn().getResponse();
 
 		// verify that return status = OK (value 200)
 		assertEquals(200, response.getStatus());
+		
+		//verifying assignment saved twice since first created then saved after changing
+		
+		verify(assignmentRepository, times(2)).save(any());
 
+		//Verify that the assignment name has changed to the name sent
 		AssignmentDTO changeResult = fromJsonString(response.getContentAsString(), AssignmentDTO.class);
-		assertEquals("NewAssignment",changeResult.assignmentName);
+		assertEquals(TEST_ASSIGNMENT_CHANGE_NAME,changeResult.assignmentName);
 	}
 	
 	@Test
-	public void deleteAssignment() throws Exception {
+	public void deleteAssignmentNoGrades() throws Exception {
 		MockHttpServletResponse response;
 
 		// mock database data
@@ -202,30 +184,77 @@ public class Cst438GradebookApplicationTests {
 		course.setSemester(TEST_SEMESTER);
 		course.setYear(TEST_YEAR);
 		course.setInstructor(TEST_INSTRUCTOR_EMAIL);
+		course.setEnrollments(new java.util.ArrayList<Enrollment>());
+		course.setAssignments(new java.util.ArrayList<Assignment>());
 		
 		courseRepository.save(course);
 		
 		Assignment assignment = new Assignment();
 		assignment.setCourse(course);
 		
-		Date dueDate = Date.valueOf(TEST_DUE_DATE);
-		
-		assignment.setDueDate(dueDate);
-		assignment.setId(1);
-		assignment.setName("Assignment 1");
-		assignment.setNeedsGrading(0);
+		assignment.setId(TEST_ASSIGNMENT_ID);
 		
 		assignmentRepository.save(assignment);
 		
-		verify(assignmentRepository, times(1)).save(any());
+		given(assignmentRepository.findById(TEST_ASSIGNMENT_ID)).willReturn(Optional.of(assignment));
 
 		
-		given(assignmentRepository.findById(1)).willReturn(Optional.of(assignment));
-
-		
-		response = mvc.perform(MockMvcRequestBuilders.post("/deleteAssignment/1").accept(MediaType.APPLICATION_JSON)).andReturn().getResponse();
+		response = mvc.perform(MockMvcRequestBuilders.delete("/deleteAssignment/100").accept(MediaType.APPLICATION_JSON)).andReturn().getResponse();
 		assertEquals(200,response.getStatus());
 		
+		//verify delete was called
+		verify(assignmentRepository, times(1)).deleteById(any());
+	}
+	
+	@Test
+	public void deleteAssignmentWithGrades() throws Exception {
+		MockHttpServletResponse response;
+
+		// mock database data
+
+		Course course = new Course();
+		course.setCourse_id(TEST_COURSE_ID);
+		course.setSemester(TEST_SEMESTER);
+		course.setYear(TEST_YEAR);
+		course.setInstructor(TEST_INSTRUCTOR_EMAIL);
+		course.setEnrollments(new java.util.ArrayList<Enrollment>());
+		course.setAssignments(new java.util.ArrayList<Assignment>());
+
+		Enrollment enrollment = new Enrollment();
+		enrollment.setCourse(course);
+		course.getEnrollments().add(enrollment);
+		enrollment.setId(TEST_COURSE_ID);
+		enrollment.setStudentEmail(TEST_STUDENT_EMAIL);
+		enrollment.setStudentName(TEST_STUDENT_NAME);
+
+		Assignment assignment = new Assignment();
+		assignment.setCourse(course);
+		course.getAssignments().add(assignment);
+		// set dueDate to 1 week before now.
+		assignment.setDueDate(new java.sql.Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000));
+		assignment.setId(TEST_ASSIGNMENT_ID);
+		assignment.setName("Assignment 1");
+		assignment.setNeedsGrading(1);
+
+		AssignmentGrade ag = new AssignmentGrade();
+		ag.setAssignment(assignment);
+		ag.setId(1);
+		ag.setScore("80");
+		ag.setStudentEnrollment(enrollment);
+		assignmentGradeRepository.save(ag);
+		
+		given(assignmentGradeRepository.findByAssignmentIdAndStudentEmail(TEST_ASSIGNMENT_ID, TEST_STUDENT_EMAIL)).willReturn(ag);
+		
+		assignmentRepository.save(assignment);
+		
+		given(assignmentRepository.findById(TEST_ASSIGNMENT_ID)).willReturn(Optional.of(assignment));
+
+		//http delete request using the id of the assignment I created
+		response = mvc.perform(MockMvcRequestBuilders.delete("/deleteAssignment/100").accept(MediaType.APPLICATION_JSON)).andReturn().getResponse();
+		assertEquals(200,response.getStatus());
+		
+		// Delete should not be called
+		verify(assignmentRepository, times(0)).deleteById(any());
 	}
 	
 
