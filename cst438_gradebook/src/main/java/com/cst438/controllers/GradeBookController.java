@@ -184,6 +184,9 @@ public class GradeBookController {
 		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
 		int courseId = 999001;
 		
+		System.out.println(assignmentDTO.assignmentName);
+		System.out.println(assignmentDTO.dueDate);
+		
 		Assignment assignment = new Assignment();
 		
 		//I create the date object for the assignment using the path variable

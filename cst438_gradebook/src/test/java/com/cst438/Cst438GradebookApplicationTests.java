@@ -94,15 +94,24 @@ public class Cst438GradebookApplicationTests {
 		course.setSemester(TEST_SEMESTER);
 		course.setYear(TEST_YEAR);
 		course.setInstructor(TEST_INSTRUCTOR_EMAIL);
+		course.setEnrollments(new java.util.ArrayList<Enrollment>());
+		course.setAssignments(new java.util.ArrayList<Assignment>());
 		
-		courseRepository.save(course);
-
-//		I create a DTO to send the data to the server.	
+		//now the api can access the course
+		given(courseRepository.findById(999001)).willReturn(Optional.of(course));
+		
+		//I create a DTO to send the data to the server.	
 		Date dueDate = Date.valueOf(TEST_DUE_DATE);
-		
+	
      	AssignmentDTO a = new AssignmentDTO();
      	a.dueDate = dueDate.toString();
      	a.assignmentName = TEST_ASSIGNMENT_NAME;
+   	
+		Course courseT = courseRepository.findById(TEST_COURSE_ID).orElse(null);
+		
+		if (courseT != null) {
+			System.out.print("the course is saved!");
+		}
 
 		// end of mock data
 		//http post request using the data
@@ -112,8 +121,8 @@ public class Cst438GradebookApplicationTests {
 				.getResponse();
 		
      	AssignmentDTO result = fromJsonString(response.getContentAsString(), AssignmentDTO.class);
-//     	
-//     	//I check the status, name, and due date to see if the DTO returned matches what was sent to the server
+////     	
+//////     	//I check the status, name, and due date to see if the DTO returned matches what was sent to the server
 		assertEquals(200, response.getStatus());
 		assertEquals(TEST_ASSIGNMENT_NAME, result.assignmentName);
 		assertEquals(dueDate.toString(), result.dueDate);
@@ -132,8 +141,6 @@ public class Cst438GradebookApplicationTests {
 		course.setYear(TEST_YEAR);
 		course.setInstructor(TEST_INSTRUCTOR_EMAIL);
 		
-		courseRepository.save(course);
-		
 		Assignment assignment = new Assignment();
 		assignment.setCourse(course);
 		
@@ -144,8 +151,6 @@ public class Cst438GradebookApplicationTests {
 		assignment.setName(TEST_ASSIGNMENT_NAME);
 		assignment.setNeedsGrading(0);
 
-		assignmentRepository.save(assignment);
-
 		// given -- stubs for database repositories that return test data
 		given(assignmentRepository.findById(1)).willReturn(Optional.of(assignment));
 
@@ -154,19 +159,18 @@ public class Cst438GradebookApplicationTests {
      	AssignmentDTO a = new AssignmentDTO();
      	a.assignmentName=TEST_ASSIGNMENT_CHANGE_NAME;
 
-
 		// send updates to server
 		response = mvc
-				.perform(MockMvcRequestBuilders.post("/changeAssignment/1").accept(MediaType.APPLICATION_JSON)
+				.perform(MockMvcRequestBuilders.put("/changeAssignment/1").accept(MediaType.APPLICATION_JSON)
 						.content(asJsonString(a)).contentType(MediaType.APPLICATION_JSON))
 				.andReturn().getResponse();
 
 		// verify that return status = OK (value 200)
 		assertEquals(200, response.getStatus());
 		
-		//verifying assignment saved twice since first created then saved after changing
+		//verifying assignment saved
 		
-		verify(assignmentRepository, times(2)).save(any());
+		verify(assignmentRepository, times(1)).save(any());
 
 		//Verify that the assignment name has changed to the name sent
 		AssignmentDTO changeResult = fromJsonString(response.getContentAsString(), AssignmentDTO.class);
@@ -187,22 +191,17 @@ public class Cst438GradebookApplicationTests {
 		course.setEnrollments(new java.util.ArrayList<Enrollment>());
 		course.setAssignments(new java.util.ArrayList<Assignment>());
 		
-		courseRepository.save(course);
-		
 		Assignment assignment = new Assignment();
 		assignment.setCourse(course);
 		
 		assignment.setId(TEST_ASSIGNMENT_ID);
 		
-		assignmentRepository.save(assignment);
-		
 		given(assignmentRepository.findById(TEST_ASSIGNMENT_ID)).willReturn(Optional.of(assignment));
 
-		
 		response = mvc.perform(MockMvcRequestBuilders.delete("/deleteAssignment/100").accept(MediaType.APPLICATION_JSON)).andReturn().getResponse();
 		assertEquals(200,response.getStatus());
 		
-		//verify delete was called
+		//verify delete was called since there was no grades
 		verify(assignmentRepository, times(1)).deleteById(any());
 	}
 	
@@ -241,11 +240,8 @@ public class Cst438GradebookApplicationTests {
 		ag.setId(1);
 		ag.setScore("80");
 		ag.setStudentEnrollment(enrollment);
-		assignmentGradeRepository.save(ag);
 		
 		given(assignmentGradeRepository.findByAssignmentIdAndStudentEmail(TEST_ASSIGNMENT_ID, TEST_STUDENT_EMAIL)).willReturn(ag);
-		
-		assignmentRepository.save(assignment);
 		
 		given(assignmentRepository.findById(TEST_ASSIGNMENT_ID)).willReturn(Optional.of(assignment));
 
@@ -253,7 +249,7 @@ public class Cst438GradebookApplicationTests {
 		response = mvc.perform(MockMvcRequestBuilders.delete("/deleteAssignment/100").accept(MediaType.APPLICATION_JSON)).andReturn().getResponse();
 		assertEquals(200,response.getStatus());
 		
-		// Delete should not be called
+		// Delete should not be called as there is a grade
 		verify(assignmentRepository, times(0)).deleteById(any());
 	}
 	
