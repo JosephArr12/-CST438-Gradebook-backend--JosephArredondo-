@@ -192,15 +192,14 @@ public class GradeBookController {
 		//I find the course by a hard coded id
 		Course course = courseRepository.findById(courseId).orElse(null);
 		
-		//Causes the junit test to fail
-//		if (course == null) {
-//			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Invalid course primary key");
-//		}
-//		
-////		I check that the instructor of the course matches the email
-//		if(!course.getInstructor().equals(email)) {
-//			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "You can't add an assignment for this course");
-//		}
+		if (course == null) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Invalid course primary key");
+		}
+		
+//		I check that the instructor of the course matches the email
+		if(!course.getInstructor().equals(email)) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "You can't add an assignment for this course");
+		}
 		
 		assignment.setName(assignmentDTO.assignmentName);
 		// the assignment does not need grading, so I set it to 0
@@ -218,7 +217,7 @@ public class GradeBookController {
 		return a;
 	}
 	
-	@PostMapping("/changeAssignment/{id}")
+	@PutMapping("/changeAssignment/{id}")
 	public AssignmentDTO changeAssignment(@RequestBody AssignmentDTO assignmentDTO, @PathVariable("id") int assignmentId){
 		Assignment assignment = assignmentRepository.findById(assignmentId).orElse(null);
 		
