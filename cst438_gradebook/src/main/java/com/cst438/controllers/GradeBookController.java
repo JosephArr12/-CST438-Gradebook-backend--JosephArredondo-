@@ -4,6 +4,8 @@ import java.sql.Date;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
@@ -177,7 +179,28 @@ public class GradeBookController {
 		return assignment;
 	}
 	
+	@GetMapping("/getCourses")
+	public HashMap<String,Integer> getCourses(@RequestParam String email) {
+		
+		Iterable<Course> it = courseRepository.findAll();
+		List<String> courses = new ArrayList<String>();
+		HashMap<String,Integer> courseInfo = new HashMap<String,Integer>();
+		for(Course course: it ) {
+			//only add the courses for the current instructor checking their email
+			if(course.getInstructor().equals(email)) {
+			courses.add(course.getTitle()+":"+ course.getCourse_id());
+			courseInfo.put(course.getTitle(), course.getCourse_id());
+			}
+		}
+		return courseInfo;
+	}
 	
+	
+//	private char[] getClass(Iterable<Course> findAll) {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
+
 	@PostMapping("/createAssignment")
 	public AssignmentDTO createAssignment(@RequestBody AssignmentDTO assignmentDTO){
 		// check that this request is from the course instructor 
@@ -186,6 +209,7 @@ public class GradeBookController {
 		
 		System.out.println(assignmentDTO.assignmentName);
 		System.out.println(assignmentDTO.dueDate);
+		System.out.println(assignmentDTO.courseId);
 		
 		Assignment assignment = new Assignment();
 		
@@ -193,7 +217,7 @@ public class GradeBookController {
 		Date dueDate = Date.valueOf(assignmentDTO.dueDate);
 
 		//I find the course by a hard coded id
-		Course course = courseRepository.findById(courseId).orElse(null);
+		Course course = courseRepository.findById(assignmentDTO.courseId).orElse(null);
 		
 		if (course == null) {
 			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Invalid course primary key");
